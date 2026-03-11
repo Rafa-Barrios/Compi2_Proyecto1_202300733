@@ -27,6 +27,7 @@ class Interpreter extends GolampiBaseVisitor
         foreach ($ctx->declaration() as $decl) {
             $this->visit($decl);
         }
+
         return $this->output;
     }
 
@@ -67,6 +68,7 @@ class Interpreter extends GolampiBaseVisitor
         }
 
         foreach ($ids as $i => $id) {
+
             $name = $id->getText();
             $value = $values[$i] ?? null;
 
@@ -84,6 +86,7 @@ class Interpreter extends GolampiBaseVisitor
     public function visitConstDecl($ctx)
     {
         $name = $ctx->ID()->getText();
+
         $value = $this->visit($ctx->expression());
 
         $this->environment->defineConst($name, $value);
@@ -98,16 +101,13 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitAssignment($ctx)
     {
-        $left = $ctx->expression(0);
+        // obtener nombre del identificador
+        $name = $ctx->expression(0)->getText();
 
-        if ($left->primary() && $left->primary()->ID()) {
-            $name = $left->primary()->ID()->getText();
-        } else {
-            throw new \Exception("Asignación inválida");
-        }
-
+        // evaluar expresión derecha
         $value = $this->visit($ctx->expression(1));
 
+        // asignar
         $this->environment->assign($name, $value);
 
         return $value;
@@ -115,12 +115,13 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
-    BLOCK STATEMENT
+    BLOCK
     ========================
     */
     public function visitBlock($ctx)
     {
         $previous = $this->environment;
+
         $this->environment = $previous->createChild();
 
         foreach ($ctx->statement() as $stmt) {
@@ -128,6 +129,7 @@ class Interpreter extends GolampiBaseVisitor
         }
 
         $this->environment = $previous;
+
         return null;
     }
 
@@ -147,7 +149,9 @@ class Interpreter extends GolampiBaseVisitor
         }
 
         if ($ctx->ID()) {
+
             $name = $ctx->ID()->getText();
+
             return $this->environment->get($name);
         }
 
@@ -165,13 +169,33 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitLiteral($ctx)
     {
-        if ($ctx->INT()) return intval($ctx->INT()->getText());
-        if ($ctx->FLOAT()) return floatval($ctx->FLOAT()->getText());
-        if ($ctx->STRING()) return trim($ctx->STRING()->getText(), '"');
-        if ($ctx->RUNE()) return trim($ctx->RUNE()->getText(), "'");
-        if ($ctx->getText() === "true") return true;
-        if ($ctx->getText() === "false") return false;
-        if ($ctx->getText() === "nil") return null;
+        if ($ctx->INT()) {
+            return intval($ctx->INT()->getText());
+        }
+
+        if ($ctx->FLOAT()) {
+            return floatval($ctx->FLOAT()->getText());
+        }
+
+        if ($ctx->STRING()) {
+            return trim($ctx->STRING()->getText(), '"');
+        }
+
+        if ($ctx->RUNE()) {
+            return trim($ctx->RUNE()->getText(), "'");
+        }
+
+        if ($ctx->getText() === "true") {
+            return true;
+        }
+
+        if ($ctx->getText() === "false") {
+            return false;
+        }
+
+        if ($ctx->getText() === "nil") {
+            return null;
+        }
 
         return $ctx->getText();
     }
@@ -183,12 +207,12 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitExpression($ctx)
     {
-        return $this->visit($ctx->logicalOr());
+        return $this->visitChildren($ctx);
     }
 
     /*
     ========================
-    EXPR LIST
+    EXPRESSION LIST
     ========================
     */
     public function visitExprList($ctx)
@@ -209,10 +233,10 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitBuiltinCall($ctx)
     {
-        $functionName = $ctx->getChild(0)->getText();
+        $text = $ctx->getText();
 
         // fmt.Println
-        if ($functionName === "fmt.Println") {
+        if (str_starts_with($text, "fmt.Println")) {
 
             $values = [];
 
@@ -223,17 +247,20 @@ class Interpreter extends GolampiBaseVisitor
             }
 
             $this->output .= implode(" ", $values) . "\n";
+
             return null;
         }
 
         // len()
-        if ($functionName === "len") {
+        if (str_starts_with($text, "len")) {
+
             $value = $this->visit($ctx->expression());
+
             return strlen($value);
         }
 
         // now()
-        if ($functionName === "now") {
+        if (str_starts_with($text, "now")) {
             return date("Y-m-d H:i:s");
         }
 
