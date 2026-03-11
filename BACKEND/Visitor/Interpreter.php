@@ -103,11 +103,45 @@ class Interpreter extends GolampiBaseVisitor
     {
         $name = $ctx->expression(0)->getText();
 
-        $value = $this->visit($ctx->expression(1));
+        $right = $this->visit($ctx->expression(1));
 
-        $this->environment->assign($name, $value);
+        $operator = $ctx->assignOp()->getText();
 
-        return $value;
+        $left = $this->environment->get($name);
+
+        if ($left === null || $right === null) {
+            $this->environment->assign($name, null);
+            return null;
+        }
+
+        $result = null;
+
+        switch ($operator) {
+
+            case '=':
+                $result = $right;
+                break;
+
+            case '+=':
+                $result = $left + $right;
+                break;
+
+            case '-=':
+                $result = $left - $right;
+                break;
+
+            case '*=':
+                $result = $left * $right;
+                break;
+
+            case '/=':
+                $result = $left / $right;
+                break;
+        }
+
+        $this->environment->assign($name, $result);
+
+        return $result;
     }
 
     /*
