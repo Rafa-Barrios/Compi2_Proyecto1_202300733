@@ -123,19 +123,19 @@ class Interpreter extends GolampiBaseVisitor
                 break;
 
             case '+=':
-                $result = $left + $right;
+                $result = $this->add($left, $right);
                 break;
 
             case '-=':
-                $result = $left - $right;
+                $result = $this->sub($left, $right);
                 break;
 
             case '*=':
-                $result = $left * $right;
+                $result = $this->mul($left, $right);
                 break;
 
             case '/=':
-                $result = $left / $right;
+                $result = $this->div($left, $right);
                 break;
         }
 
@@ -243,6 +243,90 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    ADDITIVE (+ -)
+    ========================
+    */
+    public function visitAdditive($ctx)
+    {
+        $result = $this->visit($ctx->multiplicative(0));
+
+        for ($i = 1; $i < count($ctx->multiplicative()); $i++) {
+
+            $right = $this->visit($ctx->multiplicative($i));
+            $op = $ctx->getChild(2*$i-1)->getText();
+
+            if ($op == "+") {
+                $result = $this->add($result, $right);
+            } else {
+                $result = $this->sub($result, $right);
+            }
+        }
+
+        return $result;
+    }
+
+    /*
+    ========================
+    MULTIPLICATIVE (* / %)
+    ========================
+    */
+    public function visitMultiplicative($ctx)
+    {
+        $result = $this->visit($ctx->unary(0));
+
+        for ($i = 1; $i < count($ctx->unary()); $i++) {
+
+            $right = $this->visit($ctx->unary($i));
+            $op = $ctx->getChild(2*$i-1)->getText();
+
+            switch ($op) {
+
+                case "*":
+                    $result = $this->mul($result, $right);
+                    break;
+
+                case "/":
+                    $result = $this->div($result, $right);
+                    break;
+
+                case "%":
+                    $result = $this->mod($result, $right);
+                    break;
+            }
+        }
+
+        return $result;
+    }
+
+    /*
+    ========================
+    UNARY (-)
+    ========================
+    */
+    public function visitUnary($ctx)
+    {
+        if ($ctx->getChildCount() == 2) {
+
+            $value = $this->visit($ctx->unary());
+
+            if ($value === null) return null;
+
+            if (is_int($value) || is_float($value)) {
+                return -$value;
+            }
+
+            if ($this->isRune($value)) {
+                return -ord($value);
+            }
+
+            return null;
+        }
+
+        return $this->visitChildren($ctx);
+    }
+
+    /*
+    ========================
     EXPRESSION LIST
     ========================
     */
@@ -266,7 +350,6 @@ class Interpreter extends GolampiBaseVisitor
     {
         $text = $ctx->getText();
 
-        // fmt.Println
         if (str_starts_with($text, "fmt.Println")) {
 
             $values = [];
@@ -277,7 +360,6 @@ class Interpreter extends GolampiBaseVisitor
                 }
             }
 
-            // 🔹 convertir null → "nil"
             foreach ($values as &$v) {
                 if ($v === null) {
                     $v = "nil";
@@ -289,7 +371,6 @@ class Interpreter extends GolampiBaseVisitor
             return null;
         }
 
-        // len()
         if (str_starts_with($text, "len")) {
 
             $value = $this->visit($ctx->expression());
@@ -297,7 +378,6 @@ class Interpreter extends GolampiBaseVisitor
             return strlen($value);
         }
 
-        // now()
         if (str_starts_with($text, "now")) {
             return date("Y-m-d H:i:s");
         }
@@ -313,5 +393,130 @@ class Interpreter extends GolampiBaseVisitor
     public function visitExprStmt($ctx)
     {
         return $this->visit($ctx->expression());
+    }
+
+    /*
+    ========================
+    HELPERS
+    ========================
+    */
+
+    private function isRune($value)
+    {
+        return is_string($value) && strlen($value) === 1;
+    }
+
+    private function add($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if (is_string($a) && is_string($b)) {
+            return $a . $b;
+        }
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_numeric($a) && is_numeric($b)) {
+
+            if (is_float($a) || is_float($b)) {
+                return floatval($a) + floatval($b);
+            }
+
+            return $a + $b;
+        }
+
+        return null;
+    }
+
+    private function sub($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_numeric($a) && is_numeric($b)) {
+
+            if (is_float($a) || is_float($b)) {
+                return floatval($a) - floatval($b);
+            }
+
+            return $a - $b;
+        }
+
+        return null;
+    }
+
+    private function mul($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if (is_string($a) && is_int($b)) {
+            return str_repeat($a, $b);
+        }
+
+        if (is_string($b) && is_int($a)) {
+            return str_repeat($b, $a);
+        }
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_numeric($a) && is_numeric($b)) {
+
+            if (is_float($a) || is_float($b)) {
+                return floatval($a) * floatval($b);
+            }
+
+            return $a * $b;
+        }
+
+        return null;
+    }
+
+    private function div($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if ($b == 0) return null;
+
+        if (is_numeric($a) && is_numeric($b)) {
+
+            if (is_float($a) || is_float($b)) {
+                return floatval($a) / floatval($b);
+            }
+
+            return intdiv($a, $b);
+        }
+
+        return null;
+    }
+
+    private function mod($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_int($a) && is_int($b)) {
+            return $a % $b;
+        }
+
+        return null;
     }
 }
