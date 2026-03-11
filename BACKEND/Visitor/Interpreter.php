@@ -101,13 +101,10 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitAssignment($ctx)
     {
-        // obtener nombre del identificador
         $name = $ctx->expression(0)->getText();
 
-        // evaluar expresión derecha
         $value = $this->visit($ctx->expression(1));
 
-        // asignar
         $this->environment->assign($name, $value);
 
         return $value;
@@ -243,6 +240,13 @@ class Interpreter extends GolampiBaseVisitor
             if ($ctx->exprList()) {
                 foreach ($ctx->exprList()->expression() as $expr) {
                     $values[] = $this->visit($expr);
+                }
+            }
+
+            // 🔹 convertir null → "nil"
+            foreach ($values as &$v) {
+                if ($v === null) {
+                    $v = "nil";
                 }
             }
 
