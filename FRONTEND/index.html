@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Golampi IDE</title>
+
+<style>
+
+body{
+    font-family: monospace;
+    background:#1e1e1e;
+    color:white;
+    padding:20px;
+}
+
+textarea{
+    width:100%;
+    height:300px;
+    background:#252526;
+    color:white;
+    border:none;
+    padding:10px;
+}
+
+button{
+    padding:10px 20px;
+    margin-top:10px;
+    cursor:pointer;
+}
+
+#output{
+    margin-top:20px;
+    background:black;
+    padding:10px;
+    min-height:100px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>Golampi Interpreter</h2>
+
+<textarea id="code"></textarea>
+
+<br>
+
+<button onclick="runCode()">Ejecutar</button>
+
+<h3>Salida:</h3>
+
+<pre id="output"></pre>
+
+<script>
+
+function runCode(){
+
+let code = document.getElementById("code").value;
+
+fetch("../BACKEND/Codigo/Execute.php",{
+    method:"POST",
+    headers:{
+        "Content-Type":"application/x-www-form-urlencoded"
+    },
+    body:"code="+encodeURIComponent(code)
+})
+.then(res => res.json())   // 👈 aquí está el cambio importante
+.then(data => {
+    document.getElementById("output").textContent = data.output;
+})
+.catch(error=>{
+    document.getElementById("output").textContent = "Error: "+error;
+});
+
+}
+
+</script>
+
+</body>
+</html>
