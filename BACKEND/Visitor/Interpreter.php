@@ -327,6 +327,67 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    EQUALITY (== !=)
+    ========================
+    */
+    public function visitEquality($ctx)
+    {
+        $result = $this->visit($ctx->relational(0));
+
+        for ($i = 1; $i < count($ctx->relational()); $i++) {
+
+            $right = $this->visit($ctx->relational($i));
+            $op = $ctx->getChild(2*$i-1)->getText();
+
+            if ($op == "==") {
+                $result = $this->equal($result, $right);
+            } else {
+                $result = $this->notEqual($result, $right);
+            }
+        }
+
+        return $result;
+    }
+
+    /*
+    ========================
+    COMPARISON (> < >= <=)
+    ========================
+    */
+    public function visitRelational($ctx)
+    {
+        $result = $this->visit($ctx->additive(0));
+
+        for ($i = 1; $i < count($ctx->additive()); $i++) {
+
+            $right = $this->visit($ctx->additive($i));
+            $op = $ctx->getChild(2*$i-1)->getText();
+
+            switch ($op) {
+
+                case ">":
+                    $result = $this->greater($result, $right);
+                    break;
+
+                case ">=":
+                    $result = $this->greaterEqual($result, $right);
+                    break;
+
+                case "<":
+                    $result = $this->less($result, $right);
+                    break;
+
+                case "<=":
+                    $result = $this->lessEqual($result, $right);
+                    break;
+            }
+        }
+
+        return $result;
+    }
+
+    /*
+    ========================
     EXPRESSION LIST
     ========================
     */
@@ -363,6 +424,10 @@ class Interpreter extends GolampiBaseVisitor
             foreach ($values as &$v) {
                 if ($v === null) {
                     $v = "nil";
+                }
+
+                if (is_bool($v)) {
+                    $v = $v ? "true" : "false";
                 }
             }
 
@@ -515,6 +580,117 @@ class Interpreter extends GolampiBaseVisitor
 
         if (is_int($a) && is_int($b)) {
             return $a % $b;
+        }
+
+        return null;
+    }
+
+    private function equal($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_bool($a) && is_bool($b)) {
+            return $a === $b;
+        }
+
+        if (is_string($a) && is_string($b)) {
+            return $a === $b;
+        }
+
+        if (is_numeric($a) && is_numeric($b)) {
+            return $a == $b;
+        }
+
+        return null;
+    }
+
+    private function notEqual($a, $b)
+    {
+        $result = $this->equal($a, $b);
+
+        if ($result === null) return null;
+
+        return !$result;
+    }
+
+    private function greater($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_string($a) && is_string($b)) {
+            return $a > $b;
+        }
+
+        if (is_numeric($a) && is_numeric($b)) {
+            return $a > $b;
+        }
+
+        return null;
+    }
+
+    private function greaterEqual($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_string($a) && is_string($b)) {
+            return $a >= $b;
+        }
+
+        if (is_numeric($a) && is_numeric($b)) {
+            return $a >= $b;
+        }
+
+        return null;
+    }
+
+    private function less($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_string($a) && is_string($b)) {
+            return $a < $b;
+        }
+
+        if (is_numeric($a) && is_numeric($b)) {
+            return $a < $b;
+        }
+
+        return null;
+    }
+
+    private function lessEqual($a, $b)
+    {
+        if ($a === null || $b === null) return null;
+
+        if (is_bool($a) || is_bool($b)) return null;
+
+        if ($this->isRune($a)) $a = ord($a);
+        if ($this->isRune($b)) $b = ord($b);
+
+        if (is_string($a) && is_string($b)) {
+            return $a <= $b;
+        }
+
+        if (is_numeric($a) && is_numeric($b)) {
+            return $a <= $b;
         }
 
         return null;
