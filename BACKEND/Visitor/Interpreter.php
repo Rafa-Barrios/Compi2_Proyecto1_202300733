@@ -80,6 +80,45 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    SHORT VARIABLE DECLARATION
+    ========================
+    */
+    public function visitShortVarDecl($ctx)
+    {
+        $ids = $ctx->idList()->ID();
+        $values = $this->visit($ctx->exprList());
+
+        $hasNew = false;
+
+        foreach ($ids as $i => $id) {
+
+            $name = $id->getText();
+            $value = $values[$i] ?? null;
+
+            try {
+                // intenta obtener variable
+                $this->environment->get($name);
+
+                // ya existe → asignar
+                $this->environment->assign($name, $value);
+
+            } catch (\Exception $e) {
+
+                // no existe → crear
+                $this->environment->define($name, $value);
+                $hasNew = true;
+            }
+        }
+
+        if (!$hasNew) {
+            throw new \Exception("Short declaration requiere al menos una variable nueva.");
+        }
+
+        return null;
+    }
+
+    /*
+    ========================
     CONSTANT DECLARATION
     ========================
     */
