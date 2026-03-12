@@ -394,19 +394,37 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitPostfix($ctx)
     {
+        // obtener el valor base
         $value = $this->visit($ctx->primary());
+
+        // si es variable
+        $varName = null;
+
+        if ($ctx->primary()->ID()) {
+            $varName = $ctx->primary()->ID()->getText();
+        }
 
         foreach ($ctx->children as $child) {
 
             if ($child->getText() == "++") {
+
                 if (is_numeric($value)) {
                     $value++;
+
+                    if ($varName !== null) {
+                        $this->environment->assign($varName, $value);
+                    }
                 }
             }
 
             if ($child->getText() == "--") {
+
                 if (is_numeric($value)) {
                     $value--;
+
+                    if ($varName !== null) {
+                        $this->environment->assign($varName, $value);
+                    }
                 }
             }
         }
