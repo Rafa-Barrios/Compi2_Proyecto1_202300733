@@ -307,19 +307,28 @@ class Interpreter extends GolampiBaseVisitor
     {
         if ($ctx->getChildCount() == 2) {
 
+            $op = $ctx->getChild(0)->getText();
             $value = $this->visit($ctx->unary());
 
             if ($value === null) return null;
 
-            if (is_int($value) || is_float($value)) {
-                return -$value;
-            }
+            switch ($op) {
 
-            if ($this->isRune($value)) {
-                return -ord($value);
-            }
+                case '!':
+                    if (!is_bool($value)) return null;
+                    return !$value;
 
-            return null;
+                case '-':
+                    if (is_int($value) || is_float($value)) {
+                        return -$value;
+                    }
+
+                    if ($this->isRune($value)) {
+                        return -ord($value);
+                    }
+
+                    return null;
+            }
         }
 
         return $this->visitChildren($ctx);
@@ -351,7 +360,7 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
-    COMPARISON (> < >= <=)
+    REALCIONAL (> < >= <=)
     ========================
     */
     public function visitRelational($ctx)
@@ -384,6 +393,72 @@ class Interpreter extends GolampiBaseVisitor
         }
 
         return $result;
+    }
+
+    /*
+    ========================
+    ADD (&&)
+    ========================
+    */
+    public function visitLogicalAnd($ctx)
+    {
+        $left = $this->visit($ctx->equality(0));
+
+        if (!is_bool($left)) {
+            return null;
+        }
+
+        if ($left === false) {
+            return false; // corto circuito
+        }
+
+        for ($i = 1; $i < count($ctx->equality()); $i++) {
+
+            $right = $this->visit($ctx->equality($i));
+
+            if (!is_bool($right)) {
+                return null;
+            }
+
+            if ($right === false) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /*
+    ========================
+    OR (||)
+    ========================
+    */
+    public function visitLogicalOr($ctx)
+    {
+        $left = $this->visit($ctx->logicalAnd(0));
+
+        if (!is_bool($left)) {
+            return null;
+        }
+
+        if ($left === true) {
+            return true; // corto circuito
+        }
+
+        for ($i = 1; $i < count($ctx->logicalAnd()); $i++) {
+
+            $right = $this->visit($ctx->logicalAnd($i));
+
+            if (!is_bool($right)) {
+                return null;
+            }
+
+            if ($right === true) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /*
