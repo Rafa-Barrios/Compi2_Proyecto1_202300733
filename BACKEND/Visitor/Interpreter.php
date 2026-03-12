@@ -286,6 +286,78 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    FOR STATEMENT
+    ========================
+    */
+    public function visitForStmt($ctx)
+    {
+        // FOR con forClause
+        if ($ctx->forClause()) {
+
+            $clause = $ctx->forClause();
+
+            // inicialización
+            if ($clause->forInit()) {
+                $this->visit($clause->forInit());
+            }
+
+            while (true) {
+
+                // condición
+                if ($clause->expression(0)) {
+
+                    $cond = $this->visit($clause->expression(0));
+
+                    if (!is_bool($cond)) {
+                        throw new \Exception("La condición del for debe ser booleana.");
+                    }
+
+                    if (!$cond) {
+                        break;
+                    }
+                }
+
+                // cuerpo
+                $this->visit($ctx->block());
+
+                // update
+                if ($clause->expression(1)) {
+                    $this->visit($clause->expression(1));
+                }
+            }
+
+            return null;
+        }
+
+        // FOR tipo while
+        if ($ctx->expression()) {
+
+            while (true) {
+
+                $cond = $this->visit($ctx->expression());
+
+                if (!is_bool($cond)) {
+                    throw new \Exception("La condición del for debe ser booleana.");
+                }
+
+                if (!$cond) {
+                    break;
+                }
+
+                $this->visit($ctx->block());
+            }
+
+            return null;
+        }
+
+        // FOR infinito
+        while (true) {
+            $this->visit($ctx->block());
+        }
+    }
+
+    /*
+    ========================
     PRIMARY
     ========================
     */
