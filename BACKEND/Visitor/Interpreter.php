@@ -211,6 +211,43 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    IF STATEMENT
+    ========================
+    */
+    public function visitIfStmt($ctx)
+    {
+        // evaluar condición
+        $condition = $this->visit($ctx->expression());
+
+        // la condición debe ser booleana
+        if (!is_bool($condition)) {
+            throw new \Exception("La condición del if debe ser booleana.");
+        }
+
+        // IF verdadero
+        if ($condition) {
+            return $this->visit($ctx->block(0));
+        }
+
+        // ELSE
+        if ($ctx->getChildCount() > 3) {
+
+            // else if
+            if ($ctx->ifStmt()) {
+                return $this->visit($ctx->ifStmt());
+            }
+
+            // else normal
+            if ($ctx->block(1)) {
+                return $this->visit($ctx->block(1));
+            }
+        }
+
+        return null;
+    }
+
+    /*
+    ========================
     PRIMARY
     ========================
     */
