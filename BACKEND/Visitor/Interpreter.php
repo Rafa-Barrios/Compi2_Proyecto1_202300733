@@ -248,6 +248,44 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    SWITCH STATEMENT
+    ========================
+    */
+    public function visitSwitchStmt($ctx)
+    {
+        $switchValue = $this->visit($ctx->expression());
+
+        // recorrer cases
+        foreach ($ctx->caseClause() as $case) {
+
+            $values = $this->visit($case->exprList());
+
+            foreach ($values as $value) {
+
+                if ($switchValue == $value) {
+
+                    foreach ($case->statement() as $stmt) {
+                        $this->visit($stmt);
+                    }
+
+                    return null;
+                }
+            }
+        }
+
+        // default
+        if ($ctx->defaultClause()) {
+
+            foreach ($ctx->defaultClause()->statement() as $stmt) {
+                $this->visit($stmt);
+            }
+        }
+
+        return null;
+    }
+
+    /*
+    ========================
     PRIMARY
     ========================
     */
