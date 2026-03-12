@@ -63,14 +63,19 @@ class Interpreter extends GolampiBaseVisitor
         $ids = $ctx->idList()->ID();
         $values = [];
 
-        if ($ctx->exprList()) {
+        if ($ctx->exprList() !== null) {
             $values = $this->visit($ctx->exprList());
         }
 
         foreach ($ids as $i => $id) {
 
             $name = $id->getText();
-            $value = $values[$i] ?? null;
+
+            $value = null;
+
+            if (isset($values[$i])) {
+                $value = $values[$i];
+            }
 
             $this->environment->define($name, $value);
         }
@@ -140,18 +145,19 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitAssignment($ctx)
     {
-        $name = $ctx->expression(0)->getText();
+        $leftText = $ctx->expression(0)->getText();
+
+        // solo permitimos asignar a variables simples
+        if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $leftText)) {
+            throw new \Exception("Asignación inválida: $leftText");
+        }
+
+        $name = $leftText;
 
         $right = $this->visit($ctx->expression(1));
-
         $operator = $ctx->assignOp()->getText();
 
         $left = $this->environment->get($name);
-
-        if ($right === null) {
-            $this->environment->assign($name, null);
-            return null;
-        }
 
         $result = null;
 
@@ -210,26 +216,55 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitPrimary($ctx)
     {
-        if ($ctx->literal()) {
+        // literal
+        if ($ctx->literal() !== null) {
             return $this->visit($ctx->literal());
         }
 
-        if ($ctx->builtinCall()) {
+        // builtin
+        if ($ctx->builtinCall() !== null) {
             return $this->visit($ctx->builtinCall());
         }
 
-        if ($ctx->ID()) {
-
+        // variable
+        if ($ctx->ID() !== null) {
             $name = $ctx->ID()->getText();
-
             return $this->environment->get($name);
         }
 
-        if ($ctx->expression()) {
+        // (expression)
+        if ($ctx->expression() !== null) {
             return $this->visit($ctx->expression());
         }
 
         return null;
+    }
+
+    /*
+    ========================
+    POSTFIX
+    ========================
+    */
+    public function visitPostfix($ctx)
+    {
+        $value = $this->visit($ctx->primary());
+
+        foreach ($ctx->children as $child) {
+
+            if ($child->getText() == "++") {
+                if (is_numeric($value)) {
+                    $value++;
+                }
+            }
+
+            if ($child->getText() == "--") {
+                if (is_numeric($value)) {
+                    $value--;
+                }
+            }
+        }
+
+        return $value;
     }
 
     /*
@@ -239,35 +274,33 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitLiteral($ctx)
     {
-        if ($ctx->INT()) {
-            return intval($ctx->INT()->getText());
+        $text = $ctx->getText();
+
+        // INT
+        if (preg_match('/^-?\d+$/', $text)) {
+            return intval($text);
         }
 
-        if ($ctx->FLOAT()) {
-            return floatval($ctx->FLOAT()->getText());
+        // FLOAT
+        if (preg_match('/^-?\d+\.\d+$/', $text)) {
+            return floatval($text);
         }
 
-        if ($ctx->STRING()) {
-            return trim($ctx->STRING()->getText(), '"');
+        // STRING
+        if ($text[0] === '"' && $text[strlen($text)-1] === '"') {
+            return substr($text, 1, -1);
         }
 
-        if ($ctx->RUNE()) {
-            return trim($ctx->RUNE()->getText(), "'");
+        // RUNE
+        if ($text[0] === "'" && $text[strlen($text)-1] === "'") {
+            return substr($text, 1, -1);
         }
 
-        if ($ctx->getText() === "true") {
-            return true;
-        }
+        if ($text === "true") return true;
+        if ($text === "false") return false;
+        if ($text === "nil") return null;
 
-        if ($ctx->getText() === "false") {
-            return false;
-        }
-
-        if ($ctx->getText() === "nil") {
-            return null;
-        }
-
-        return $ctx->getText();
+        return null;
     }
 
     /*
@@ -277,7 +310,7 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitExpression($ctx)
     {
-        return $this->visitChildren($ctx);
+        return $this->visit($ctx->logicalOr());
     }
 
     /*
@@ -344,24 +377,35 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitUnary($ctx)
     {
+        // caso: operador unario
         if ($ctx->getChildCount() == 2) {
 
+            $op = $ctx->getChild(0)->getText();
             $value = $this->visit($ctx->unary());
 
             if ($value === null) return null;
 
-            if (is_int($value) || is_float($value)) {
-                return -$value;
-            }
+            switch ($op) {
 
-            if ($this->isRune($value)) {
-                return -ord($value);
-            }
+                case '!':
+                    if (!is_bool($value)) return null;
+                    return !$value;
 
-            return null;
+                case '-':
+                    if (is_int($value) || is_float($value)) {
+                        return -$value;
+                    }
+
+                    if ($this->isRune($value)) {
+                        return -ord($value);
+                    }
+
+                    return null;
+            }
         }
 
-        return $this->visitChildren($ctx);
+        // caso normal → pasar a postfix
+        return $this->visit($ctx->postfix());
     }
 
     /*
@@ -390,7 +434,7 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
-    COMPARISON (> < >= <=)
+    realcional (> < >= <=)
     ========================
     */
     public function visitRelational($ctx)
@@ -420,6 +464,82 @@ class Interpreter extends GolampiBaseVisitor
                     $result = $this->lessEqual($result, $right);
                     break;
             }
+        }
+
+        return $result;
+    }
+
+    /*
+    ========================
+    LOGICAL AND (&&)
+    ========================
+    */
+    public function visitLogicalAnd($ctx)
+    {
+        $count = count($ctx->equality());
+
+        $result = $this->visit($ctx->equality(0));
+
+        // si no hay && devolvemos el valor
+        if ($count == 1) {
+            return $result;
+        }
+
+        if (!is_bool($result)) {
+            return null;
+        }
+
+        for ($i = 1; $i < $count; $i++) {
+
+            if ($result === false) {
+                return false;
+            }
+
+            $right = $this->visit($ctx->equality($i));
+
+            if (!is_bool($right)) {
+                return null;
+            }
+
+            $result = $result && $right;
+        }
+
+        return $result;
+    }
+
+    /*
+    ========================
+    LOGICAL OR (||)
+    ========================
+    */
+    public function visitLogicalOr($ctx)
+    {
+        $count = count($ctx->logicalAnd());
+
+        $result = $this->visit($ctx->logicalAnd(0));
+
+        // si no hay || simplemente devolvemos el valor
+        if ($count == 1) {
+            return $result;
+        }
+
+        if (!is_bool($result)) {
+            return null;
+        }
+
+        for ($i = 1; $i < $count; $i++) {
+
+            if ($result === true) {
+                return true;
+            }
+
+            $right = $this->visit($ctx->logicalAnd($i));
+
+            if (!is_bool($right)) {
+                return null;
+            }
+
+            $result = $result || $right;
         }
 
         return $result;
