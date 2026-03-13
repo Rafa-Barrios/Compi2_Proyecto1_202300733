@@ -5,6 +5,7 @@ namespace Visitor;
 use GolampiBaseVisitor;
 
 require_once "Environment.php";
+require_once "FlowTypes.php";
 
 class Interpreter extends GolampiBaseVisitor
 {
@@ -264,8 +265,15 @@ class Interpreter extends GolampiBaseVisitor
 
                 if ($switchValue == $value) {
 
-                    foreach ($case->statement() as $stmt) {
-                        $this->visit($stmt);
+                    try {
+
+                        foreach ($case->statement() as $stmt) {
+                            $this->visit($stmt);
+                        }
+
+                    }
+                    catch (BreakSignal $e) {
+                        return null;
                     }
 
                     return null;
@@ -276,8 +284,15 @@ class Interpreter extends GolampiBaseVisitor
         // default
         if ($ctx->defaultClause()) {
 
-            foreach ($ctx->defaultClause()->statement() as $stmt) {
-                $this->visit($stmt);
+            try {
+
+                foreach ($ctx->defaultClause()->statement() as $stmt) {
+                    $this->visit($stmt);
+                }
+
+            }
+            catch (BreakSignal $e) {
+                return null;
             }
         }
 
@@ -318,7 +333,12 @@ class Interpreter extends GolampiBaseVisitor
                 }
 
                 // cuerpo
-                $this->visit($ctx->block());
+                try {
+                    $this->visit($ctx->block());
+                }
+                catch (BreakSignal $e) {
+                    break;
+                }
 
                 // update
                 if ($clause->expression(1)) {
@@ -344,7 +364,12 @@ class Interpreter extends GolampiBaseVisitor
                     break;
                 }
 
-                $this->visit($ctx->block());
+                try {
+                    $this->visit($ctx->block());
+                }
+                catch (BreakSignal $e) {
+                    break;
+                }
             }
 
             return null;
@@ -352,8 +377,25 @@ class Interpreter extends GolampiBaseVisitor
 
         // FOR infinito
         while (true) {
-            $this->visit($ctx->block());
+            try {
+                $this->visit($ctx->block());
+            }
+            catch (BreakSignal $e) {
+                break;
+            }
         }
+
+        return null;
+    }   
+
+    /*
+    ========================
+    break
+    ========================
+    */
+    public function visitBreakStmt($ctx)
+    {
+        throw new BreakSignal();
     }
 
     /*
