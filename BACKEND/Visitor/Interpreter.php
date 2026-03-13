@@ -417,6 +417,22 @@ class Interpreter extends GolampiBaseVisitor
 
     /*
     ========================
+    return
+    ========================
+    */
+    public function visitReturnStmt($ctx)
+    {
+        $value = null;
+
+        if ($ctx->exprList()) {
+            $value = $this->visit($ctx->exprList());
+        }
+
+        throw new ReturnSignal($value);
+    }
+
+    /*
+    ========================
     PRIMARY
     ========================
     */

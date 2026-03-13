@@ -28,12 +28,13 @@ class ContinueSignal extends \Exception
 RETURN SIGNAL
 ========================
 */
-class ReturnSignal extends \Exception
-{
+class ReturnSignal extends \Exception {
+
     public $value;
 
-    public function __construct($value = null)
-    {
+    public function __construct($value) {
+        parent::__construct();
         $this->value = $value;
     }
+
 }
