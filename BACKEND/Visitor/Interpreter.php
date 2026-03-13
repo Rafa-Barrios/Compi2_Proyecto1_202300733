@@ -336,6 +336,8 @@ class Interpreter extends GolampiBaseVisitor
                 try {
                     $this->visit($ctx->block());
                 }
+                catch (ContinueSignal $e) {
+                }
                 catch (BreakSignal $e) {
                     break;
                 }
@@ -367,6 +369,9 @@ class Interpreter extends GolampiBaseVisitor
                 try {
                     $this->visit($ctx->block());
                 }
+                catch (ContinueSignal $e) {
+                    continue;
+                }
                 catch (BreakSignal $e) {
                     break;
                 }
@@ -380,11 +385,13 @@ class Interpreter extends GolampiBaseVisitor
             try {
                 $this->visit($ctx->block());
             }
+            catch (ContinueSignal $e) {
+                continue;
+            }
             catch (BreakSignal $e) {
                 break;
             }
         }
-
         return null;
     }   
 
@@ -396,6 +403,16 @@ class Interpreter extends GolampiBaseVisitor
     public function visitBreakStmt($ctx)
     {
         throw new BreakSignal();
+    }
+
+    /*
+    ========================
+    continue
+    ========================
+    */
+    public function visitContinueStmt($ctx)
+    {
+        throw new ContinueSignal();
     }
 
     /*
