@@ -71,11 +71,26 @@ class Interpreter extends GolampiBaseVisitor
         foreach ($ids as $i => $id) {
 
             $name = $id->getText();
-
             $value = null;
 
-            if (isset($values[$i])) {
-                $value = $values[$i];
+            // revisar si el tipo es arreglo
+            if ($ctx->type()->arrayType() !== null) {
+
+                $size = $this->visit($ctx->type()->arrayType()->expression());
+
+                if (!is_int($size) || $size < 0) {
+                    throw new \Exception("El tamaño del arreglo debe ser un entero positivo.");
+                }
+
+                // valor por defecto (int = 0)
+                $value = array_fill(0, $size, 0);
+
+            } else {
+
+                if (isset($values[$i])) {
+                    $value = $values[$i];
+                }
+
             }
 
             $this->environment->define($name, $value);
@@ -148,7 +163,70 @@ class Interpreter extends GolampiBaseVisitor
     {
         $leftText = $ctx->expression(0)->getText();
 
-        // solo permitimos asignar a variables simples
+        // -------------------------
+        // ASIGNACION A ARRAY
+        // -------------------------
+        if (preg_match('/^([a-zA-Z_][a-zA-Z0-9_]*)\[(.+)\]$/', $leftText, $matches)) {
+
+            $name = $matches[1];
+
+            $index = intval($matches[2]);
+
+            $array = $this->environment->get($name);
+
+            if (!is_array($array)) {
+                throw new \Exception("La variable '$name' no es un arreglo.");
+            }
+
+            if (!is_int($index)) {
+                throw new \Exception("El índice debe ser entero.");
+            }
+
+            if (!array_key_exists($index, $array)) {
+                throw new \Exception("Índice fuera de rango.");
+            }
+
+            $right = $this->visit($ctx->expression(1));
+            $operator = $ctx->assignOp()->getText();
+
+            $left = $array[$index];
+
+            $result = null;
+
+            switch ($operator) {
+
+                case '=':
+                    $result = $right;
+                    break;
+
+                case '+=':
+                    $result = $this->add($left, $right);
+                    break;
+
+                case '-=':
+                    $result = $this->sub($left, $right);
+                    break;
+
+                case '*=':
+                    $result = $this->mul($left, $right);
+                    break;
+
+                case '/=':
+                    $result = $this->div($left, $right);
+                    break;
+            }
+
+            $array[$index] = $result;
+
+            $this->environment->assign($name, $array);
+
+            return $result;
+        }
+
+        // -------------------------
+        // LOGICA ORIGINAL (VARIABLE NORMAL)
+        // -------------------------
+
         if (!preg_match('/^[a-zA-Z_][a-zA-Z0-9_]*$/', $leftText)) {
             throw new \Exception("Asignación inválida: $leftText");
         }
@@ -189,7 +267,7 @@ class Interpreter extends GolampiBaseVisitor
 
         return $result;
     }
-
+    
     /*
     ========================
     BLOCK
@@ -469,19 +547,40 @@ class Interpreter extends GolampiBaseVisitor
     */
     public function visitPostfix($ctx)
     {
-        // obtener el valor base
         $value = $this->visit($ctx->primary());
 
-        // si es variable
         $varName = null;
 
         if ($ctx->primary()->ID()) {
             $varName = $ctx->primary()->ID()->getText();
         }
 
+        // manejar índices
+        foreach ($ctx->index() as $indexCtx) {
+
+            $index = $this->visit($indexCtx->expression());
+
+            if (!is_int($index)) {
+                throw new \Exception("El índice del arreglo debe ser entero.");
+            }
+
+            if (!is_array($value)) {
+                throw new \Exception("Intento de indexar una variable que no es arreglo.");
+            }
+
+            if (!array_key_exists($index, $value)) {
+                throw new \Exception("Índice fuera de rango.");
+            }
+
+            $value = $value[$index];
+        }
+
+        // manejar ++ --
         foreach ($ctx->children as $child) {
 
-            if ($child->getText() == "++") {
+            $text = $child->getText();
+
+            if ($text === "++") {
 
                 if (is_numeric($value)) {
                     $value++;
@@ -492,7 +591,7 @@ class Interpreter extends GolampiBaseVisitor
                 }
             }
 
-            if ($child->getText() == "--") {
+            if ($text === "--") {
 
                 if (is_numeric($value)) {
                     $value--;
@@ -541,6 +640,32 @@ class Interpreter extends GolampiBaseVisitor
         if ($text === "nil") return null;
 
         return null;
+    }
+
+    /*
+    ========================
+    arrayLITERAL
+    ========================
+    */
+    public function visitArrayLiteral($ctx)
+    {
+        $size = $this->visit($ctx->expression());
+
+        $values = [];
+
+        if ($ctx->exprList() !== null) {
+            $values = $this->visit($ctx->exprList());
+        }
+
+        if (count($values) > $size) {
+            throw new \Exception("Demasiados valores para el arreglo.");
+        }
+
+        while (count($values) < $size) {
+            $values[] = 0;
+        }
+
+        return $values;
     }
 
     /*

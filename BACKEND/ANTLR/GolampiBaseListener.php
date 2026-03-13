@@ -567,6 +567,19 @@ class GolampiBaseListener implements GolampiListener
 	 *
 	 * The default implementation does nothing.
 	 */
+	public function enterArrayLiteral(Context\ArrayLiteralContext $context): void {}
+
+	/**
+	 * {@inheritdoc}
+	 *
+	 * The default implementation does nothing.
+	 */
+	public function exitArrayLiteral(Context\ArrayLiteralContext $context): void {}
+	/**
+	 * {@inheritdoc}
+	 *
+	 * The default implementation does nothing.
+	 */
 	public function enterBuiltinCall(Context\BuiltinCallContext $context): void {}
 
 	/**

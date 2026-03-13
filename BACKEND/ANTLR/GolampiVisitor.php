@@ -390,6 +390,15 @@ interface GolampiVisitor extends ParseTreeVisitor
 	public function visitPrimary(Context\PrimaryContext $context);
 
 	/**
+	 * Visit a parse tree produced by {@see GolampiParser::arrayLiteral()}.
+	 *
+	 * @param Context\ArrayLiteralContext $context The parse tree.
+	 *
+	 * @return mixed The visitor result.
+	 */
+	public function visitArrayLiteral(Context\ArrayLiteralContext $context);
+
+	/**
 	 * Visit a parse tree produced by {@see GolampiParser::builtinCall()}.
 	 *
 	 * @param Context\BuiltinCallContext $context The parse tree.

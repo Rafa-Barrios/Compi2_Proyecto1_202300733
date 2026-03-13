@@ -217,7 +217,16 @@ primary
     : literal
     | ID
     | builtinCall
+    | arrayLiteral
     | '(' expression ')'
+    ;
+
+////////////////////
+/// ARRAY LITERAL
+////////////////////
+
+arrayLiteral
+    : '[' expression ']' type '{' exprList? '}'
     ;
 
 ////////////////////
